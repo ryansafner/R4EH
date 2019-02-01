@@ -1,0 +1,187 @@
+# Regression Basics
+
+```{r, echo=F, message=F, warning=F}
+suppressPackageStartupMessages(library(tidyverse))
+library(knitr)
+library(broom)
+library(stargazer)
+```
+
+## Ordinary Least Squares (OLS) Regression
+
+In `R`, the Ordinary Least Squares (OLS) regression model is simply called the **"linear model"**, abbreviated `lm`. Regressions are run on several variables from a `data.frame` and stored as a `lm` object that we can inspect and modify. 
+
+```{r}
+set.seed=1 #makes 'random' draws reproducible 
+x<-runif(500,min=0,max=10) #500 draws from uniform distr 
+y<-2*x+rnorm(500,2,4)
+my_df<-data.frame(x,y)
+
+ggplot(my_df, aes(x=x,y=y))+
+        geom_point(alpha=0.5)+
+        geom_smooth(method="lm", color="green")+
+        xlim(c(0,10))+theme_light()
+```
+
+The syntax for running a regression in `R` is simple. We store the regression as an `lm()` object (e.g. called "`my_reg`") and regress our dependent (`mydf$y`) variable on (`~`) the independent (`my_df$x`) variable.  
+
+```{r, eval=FALSE}
+my_reg<-lm(df$y~df$x)
+```
+
+Alternatively, we can simply use the variable `names` from `my_df` and then tell `R` that the variables are coming from `my_df`:
+
+```{r,}
+my_reg<-lm(y~x, data = my_df)
+```
+
+$$y=\beta_0+\beta_1 x$$
+
+When we inspect our `lm` object, `R` simply prints the coefficients ("`Intercept`" for $\hat{\beta_0}$) and ("`x`" for $\hat{\beta_1}$ on $x$): 
+
+```{r}
+my_reg
+```
+
+We can get a more detailed summary by running `summary()` on our `lm` object. 
+
+```{r}
+summary(my_reg)
+```
+
+The `summary()` prints:
+
+- The formula for the regression
+- A 5 number summary of the distribution of the residuals
+- Table of coefficients
+    - Column 1: Estimate for each $\beta$
+    - Column 2: Standard error of each $\beta$
+    - Column 3: $t$-statistic for each $\beta$ with $H_0: \, \beta=0$
+    - Column 4: $p$-value for the $t$-test
+- Regression Diagnostics
+    - Standard error of the regression (SER), `R` calls it `Residual standard error (RSE)`
+    - `R-squared` and `Adjusted R-squared`
+    - "All $F$-test" where $H_0: \text{ all } \beta\text{'s}=0$
+
+Inside the `lm` object `my_reg` is stored a lot of things that may not show up in the `summary`. To get a full inspection, check the structure with `str()`.
+
+```{r}
+str(my_reg)
+```
+
+Note that `lm` objects are actually `list`s, (`data.frame`s are also `list`s), so we can extract elements of the list and subset using `$` or `[[]]`. Some of the important elements of the list:
+
+- `my_reg$coefficients` is a list of coefficients
+- `my_reg$residuals` is a list comprised of the residual for each `x` value
+- `my_reg$fitted.values` is a list comprised of the predicted/fitted value ($\hat{y}$) for each `x` value 
+
+```{r}
+my_reg$coefficients # look at coefficients
+my_reg$residuals[1:5] # look at first 5 residuals
+my_reg$fitted.values[1:5] # look at first 5 fitted.values
+```
+
+These stored values will come in handy. We can run functions on them, for example, to discover things about the residuals:
+
+```{r}
+summary(my_reg$residuals) # the same as the first thing printed in the regression output above!
+sd(my_reg$residuals) # the standard deviation of the residuals 
+```
+
+Since these are stored in `lm` as objects, we can also assign them to new columns in our original `data.frame`, `my_df`. This can be helpful for plotting with `x`, `y`, the residuals $\epsilon$, and the predicted values $\hat{y}$.  
+
+```{r}
+# save predicted values from model as "yhat"
+my_df$yhat<-my_reg$fitted.values
+
+# save residuals from model as "res"
+my_df$res<-my_reg$residuals
+
+# look at new dataframe
+kable(head(my_df))
+```
+
+There are also specific functions for assigning the predicted values and the residuals to a `data.frame`, using the `lm` object as the argument. They will produce the same result as above.
+
+```{r}
+# save predicted values from model as "yhat"
+my_df$yhat<-predict(my_reg)
+
+# save residuals from model as "res"
+my_df$res<-residuals(my_reg)
+
+# we get the same result
+head(my_df)
+```
+
+### Diagnostics
+
+Some of the regression diagnostics are stored (idiosyncratically) in the `summary()` object, and can be extracted by name:
+
+```{r}
+summary(my_reg)$sigma # extract residual squared error (SER)
+summary(my_reg)$r.squared # extract R^2
+summary(my_reg)$adj.r.squared # extract adjusted R^2
+summary(my_reg)$f # extract the F-statistic 
+```
+
+These might be useful if we wished to perform manual calculations using these statistics. As an example, if we wanted to calculate the correlation coefficient between $X$ and $Y$, and we know that $R^2$ is the correlation coefficient squared: 
+
+```{r}
+R2<-summary(my_reg)$r.squared
+sqrt(R2) 
+
+# compare to actual correlation coefficient
+cor(my_df$x, my_df$y)
+```
+
+## Prediction
+
+We can use the model to make pedictions using the estimated regression model.
+
+$$\hat{Y}=2.090+1.974X$$
+
+```{r}
+x<-3
+prediction<-my_reg$coef[1]+my_reg$coef[2]*x
+prediction
+```
+
+```{r}
+# multiple predictions
+x<-c(1,3,7,10)
+prediction<-my_reg$coef[1]+my_reg$coef[2]*x
+prediction
+
+# alternatively, we can use the predict() function and insert 
+# a dataframe of our desired x values to predict y-hat
+prediction2<-predict(my_reg, data.frame(x=c(1,3,7,10)))
+prediction2
+```
+
+## Residual Plots
+
+For more, see [Plotting]{#04-plotting}. 
+
+
+```{r, fig.height=3}
+ggplot(data = my_df, aes(x = x, y = res))+
+  geom_point(color="red")+
+  geom_hline(yintercept=0, color="blue")+ # add horizontal line at y=0
+  theme_light()
+```
+
+## Regression Output Table
+
+The `broom` package converts `lm` objects into a tidy `data.frame` that can easily be printed in a nice table using `knitr`'s `kable()` function for `html` output. 
+
+```{r}
+# install.packages("broom") # install first if you don't have 
+library(broom)
+reg2<-tidy(my_reg)
+kable(reg2)
+```
+
+```{r, results="asis"}
+stargazer(my_reg, type="html") 
+```

@@ -1,0 +1,293 @@
+# Advanced Regression
+
+**Work in Progress**
+
+Most code is here, but not text explaining everything...
+
+## Multivariate Regression
+
+
+```{r}
+set.seed(1)
+x<-rnorm(500,10,2)
+z<-runif(500,10,20)
+y<-rnorm(500,2*x*z,2)
+year<-sample(seq(2000,2018,1),500,replace=TRUE)
+
+# generate categorical variables
+
+# make a shape variable 
+shapes<-c("square","circle","triangle","rectangle","trapezoid")
+shape<-sample(shapes,500,replace=TRUE) # sample 500 random draws with replacement from shapes
+
+# make a region variable 
+regions<-c("north","south","east","west")
+region<-sample(regions,500,replace=TRUE) # sample 500 random draws with replacement from regions
+
+# make a dummy variable 
+yes<-sample(c(0,1),500,replace=TRUE) 
+
+# combine into dataframe called df
+
+df<-data.frame(x=x,
+               y=y,
+               z=z,
+               shape=factor(shape),
+               region=factor(region),
+               yes=yes,
+               year=factor(year))
+
+# look at new df
+
+head(df)
+```
+
+It is quite simply to simply add additional covariates to a regression. In the `lm` object, we add variables with `+`.
+
+```{r}
+reg1<-lm(y~x+z, data=df)
+summary(reg1)
+```
+
+## Dummy Variables
+
+```{r}
+reg_d<-lm(y~yes, data=df)
+summary(reg_d)
+```
+
+The effect on `y` of going from "No" to "Yes" is `r round(reg_d$coef[2],2)`. 
+
+
+If we wanted to make a dummy variable for an existing categorical variable
+
+```{r}
+df$north<-ifelse(region=="north",1,0)
+df$south<-ifelse(region=="south",1,0)
+df$east<-ifelse(region=="east",1,0)
+df$west<-ifelse(region=="west",1,0)
+
+head(df)
+```
+
+Here is where a `for` loop also can come in handy:
+
+```{r}
+for(i in unique(df$region)){
+  region[i]<-ifelse(df$region==i,1,0)
+}
+head(df)
+```
+
+## Polynomial Regression
+
+```{r}
+x1<-rnorm(500,5,1)
+y1<-(x1-5)^2+2+rnorm(500,1,0.5)
+
+quad<-data.frame(x=x1,
+                 y=y1)
+```
+
+```{r}
+library(ggplot2)
+ggplot(quad, aes(x=x,y=y))+
+  geom_point()+theme_light()
+```
+
+```{r}
+reg<-lm(y~x, data=quad)
+summary(reg)
+```
+
+```{r}
+quadreg<-lm(y~x+I(x^2), data=quad)
+summary(quadreg)
+```
+
+```{r}
+suppressPackageStartupMessages(library(dplyr))
+quad<-quad %>%
+  mutate(x2=x^2,
+         x3=x^3)
+
+head(quad)
+```
+
+```{r}
+quadreg2<-lm(y~x+x2, data=quad)
+summary(quadreg2)
+```
+
+Estimating marginal effects. 
+
+```{r}
+marginaleffect<-function(x){
+  quadreg$coef[2]+2*quadreg$coef[3]*x
+}
+marginaleffect(1:10)
+```
+
+
+### Higher Polynomials
+
+```{r}
+cubicreg<-lm(y~x+x2+x3, data=quad)
+summary(cubicreg)
+```
+
+```{r}
+cubicreg2<-lm(y~x+I(x^2)+I(x^3), data=quad)
+summary(cubicreg2)
+```
+
+
+```{r}
+cubicreg3<-lm(y~poly(x,3, raw=TRUE), data=quad)
+summary(cubicreg3)
+```
+
+Finding the maximum or minimum. 
+
+```{r}
+min.x<-(-0.5*quadreg$coef[2]/quadreg$coef[3])
+min.x
+
+# the predicted value of y at the minimum
+min.yhat<-quadreg$coef[1]+quadreg$coef[2]*min.x+quadreg$coef[3]*min.x
+min.yhat
+```
+
+`yhat` reaches a minimum of `r round(min.yhat,2)` when `x` is `r round(min.x,2)`. 
+
+$F$-test of nonlinearity, $H_0: \beta_2=\beta_3=0$
+
+```{r}
+library(car)
+linearHypothesis(cubicreg, c("x2","x3"))
+```
+
+## Logarithmic Models
+
+```{r}
+quad<-quad %>%
+  mutate(l.x=log(x),
+         l.y=log(y))
+
+head(quad)
+```
+
+```{r}
+# linear log model
+lin_log_reg<-lm(y~l.x, data = quad)
+summary(lin_log_reg)
+
+# log-linear model
+log_lin_reg<-lm(l.y~x, data = quad)
+summary(log_lin_reg)
+
+# log-log model
+log_log_reg<-lm(l.y~l.x, data = quad)
+summary(log_log_reg)
+```
+
+```{r, message=F, warning=F, results="asis"}
+suppressPackageStartupMessages(library(stargazer))
+stargazer(lin_log_reg, log_lin_reg, log_log_reg, type="html", column.labels = c("Linear-Log", "Log-Linear", "Log-Log"))
+```
+
+Interpretting the coefficients:
+
+- **Linear-log model**: a 1\% change in `x` yields a `r round(100*lin_log_reg$coef[2],2)` units change in `y`
+- **Log-linear model**: a 1 unit change in `x` yields a `r round(0.01*log_lin_reg$coef[2],2)`\% change in `y`
+- **Log-log model**: a 1\% change in `x` yields a `r round(log_log_reg$coef[2],2)`\% change in `y`
+
+## Standardizing Variables
+
+Easiest way is to use the `scale()` command as part of the `mutate()` command in `dplyr`. 
+
+```{r}
+library(gapminder)
+gapminder<-gapminder %>% 
+  mutate(s.life=scale(lifeExp),
+         s.gdp=scale(gdpPercap),
+         s.pop=scale(pop))
+
+stdreg<-lm(s.life~s.gdp+s.pop, data=gapminder)
+summary(stdreg)
+```
+
+Interpretting the coefficients:
+
+- A 1 standard deviation change in `gdpPercap` yields a `r round(stdreg$coef[2],2)` standard deviation change in `lifeExp`
+- A 1 standard deviation change in `pop` yields a `r round(stdreg$coef[3],2)` standard deviation change in `lifeExp`
+
+## Panel Data 
+
+```{r}
+str(df)
+```
+
+Using **Least Squares Dummy Variable (LSDV)** approach
+
+```{r}
+reg_fe<-lm(y~x+region, data = df)
+summary(reg_fe)
+```
+
+De-meaned Method using `plm` package
+
+```{r}
+library(plm)
+reg_fe2<-plm(y~x, data = df, index = "region", model = "within")
+summary(reg_fe2)
+```
+
+### Two Way Fixed Effects
+
+LSDV method
+
+```{r}
+reg_2way_fe<-lm(y~x+region+year, data = df)
+summary(reg_2way_fe)
+```
+```{r, generate-balanced-panel}
+states<-c("AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY")
+
+df<-data.frame() # make empty dataframe
+
+# for each state, generate data, creates dataframe called df_"state" e.g. df_AL, df_AK, etc. 
+for(i in unique(states)){
+  assign(paste("df",i,sep="_"),data.frame(state=i,
+                year=seq(2000,2018,1),
+                x=rnorm(19,5,1),
+                y=rnorm(19,2*(rnorm(19,5,1)),1)) # make y approx 2*x 
+  )
+}
+
+# make list of state dataframes
+statedfs<-lapply(ls(pattern="df_"),get)
+
+# combine state dataframes to df 
+for (i in seq_along(statedfs)){
+  df<-rbind(df,statedfs[[i]])
+}
+
+# remove all individual state dataframes, (e.g. "df_AL") keep only "df"
+rm(list=ls(pattern="df_"))
+```
+
+```{r}
+library("plm")
+pdim(df, index=c("state","year"))
+```
+
+```{r}
+reg_2way_fe<-lm(y~x+state+factor(year), data=df)
+summary(reg_2way_fe)
+```
+
+```{r}
+reg_2way_fe2<-plm(y~x, data=df, index=c("state","year"), model="within", effect="twoways")
+summary(reg_2way_fe2)
+```

@@ -1,0 +1,263 @@
+# Plotting 
+
+Data visualization is one of the most useful tools and gives you the most "bang for your buck." Base `R` is very powerful and intuitive to plot, but is not very aesthetically pleasing or advanced. We also use the `ggplot2` package, part of the `tidyverse` to suit our advanced plotting needs. 
+
+## Plotting in Base `R`
+
+The basic syntax is quite simple, put the variable(s) you wish to plot (which come from a dataframe) inside the argument of a plot function: 
+
+```{r, eval=FALSE}
+plottype(my_df$my_variable1, my_df$my_variable2)
+```
+
+If you are using multiple variables, you can avoid having to invoke the same dataframe and `$` multiple times by just including the `names` of the variables in the dataframe, and then add `, data=my_df` as the final argument of the function, e.g.  
+
+```{r, eval=FALSE}
+plottype(my_variable1, my_variable_2, data=my_df)
+```
+
+The three simple plots that we can look at are 
+
+| Function    | Plot Type   | When Used                                                   |
+|-------------|-------------|-------------------------------------------------------------|
+| `hist()`    | Histogram   | Exploring the distribution of a single variable             |
+| `barplot()` | Bar Graph   | Exploring the counts of different categories of a variable  |
+| `boxplot()` | Boxplot     | Exploring the distribution of a single variable             |
+| `plot()`    | Scatterplot | Exploring the relationship between two variables            |
+
+### Histogram
+
+```{r, echo=TRUE, fig.height=4, fig.width=10, warning=FALSE}
+library("gapminder")
+hist(gapminder$gdpPercap)
+```
+
+### Boxplot 
+
+- Boxplots are similar syntax
+
+```{r, fig.height=4}
+boxplot(gapminder$gdpPercap)
+```
+
+- If we want a boxplot for each category, use `variable.name~category.variable.name` to tell `R` to plot a boxplot **by** category 
+
+```{r, fig.height=4}
+boxplot(gdpPercap~continent,data=gapminder)
+```
+
+### Scatterplot 
+
+- Scatterplot syntax for plotting is similar to `hist()` and `boxplot()`: `plot(df$x,df$y)`
+```{r, fig.height=3.5}
+plot(gapminder$gdpPercap, gapminder$lifeExp)
+```
+
+## With `ggplot2`
+
+``ggplot2` is one of the premier packages at the center of the `tidyverse`. It is very powerful and creates beautiful data visualizations, but has a steeper learning curve at first. All of those "cool graphics" you see in media outlets such as the [New York Times](https://archive.nytimes.com/www.nytimes.com/interactive/sports/football/2013-fantasy-football-tier-charts-QB.html), [fivethirtyeight](https://fivethirtyeight.com/features/fastest-airlines-fastest-airports/), Vox, the Economist, etc use something are based off of `ggplot2`. The `gg` stands for a "grammar of graphics"
+
+### Two Ways to Plot
+
+1. Just the single `ggplot` command 
+    - Will view plot right after producing it
+    - Does not save as an object
+    - Need to rerun or copy/paste full command producing plot in order to modify or view it again
+    - Can still put it in a document
+
+
+```{r, eval=FALSE}
+ggplot(...) # make and view plot
+ggplot(some.options) # remake plot with new options and view plot
+```
+
+### Two Ways to Plot II 
+
+2. Create an object (as usual in `R`)
+    - This allows you to save the plot for later (re)use
+    - Also allows you to modify it 
+    - Any time you want to view display it (i.e. for putting it in a document), just call up the plot by name
+
+```{r, eval=FALSE}
+plot.name<-ggplot(...) # make plot
+plot.name<-plot.name+some.options # add new options to existing plot
+plot.name # view plot 
+```
+```{r, eval=FALSE}
+plot.name<-ggplot(data=mydf, mapping=aes(x=xvar,y=yvar))+
+  geom_something(options)+
+  moreoptions...
+```
+
+- `gg` "grammar of graphics" implies any graphic can be built from the same components/layers:
+    1. **Data**: base-layer describes the data used
+        - `mydf` is the dataframe containing `xvar` and `yvar`
+        - `aes()` "aesthetics" identifies `xvar` (and if applicable `yvar`) from data to be "mapped" to a visual mark
+    2. **Geoms**: visual marks that represent data observations or models, common examples:
+        - e.g. `geom_point`, `geom_line`, `geom_bar`, `geom_histogram`, `geom_density`, `geom_boxplot`
+    3. **Coordinates**: Cartesian coordinates are default
+        - change scales, axes, labels, etc; advanced options like maps 
+
+- Most important idea to master is `aes()` **aesthetics** that map data to visual markings
+- Aesthetics come in many forms and many options, depending on the context of the data
+    - Must identify position (e.g. what is `x` and `y`) 
+    - Determine the marking with various `geoms` (points, bars, lines, boxes, etc)
+    - Can pass additional options into `geom` (color, size, shape, etc) 
+        - Particularly important if we want color, size, or shape to depend on a particular variable in dataset
+
+![](images/ggplotaes.png){height=1.5in}
+
+For our example, we'll use the [mpg dataset](https://ggplot2.tidyverse.org/reference/mpg.html) loaded with the `ggplot2` package 
+
+```{r}
+library("ggplot2") #load ggplot2
+mpg #look at dataset
+```
+
+- Start with the **base layer**: establish the data source, define $x$ variable
+
+```{r, fig.height=3.5}
+mpg.h<-ggplot(data=mpg,mapping=aes(x=hwy))
+mpg.h
+```
+
+- Add a histogram `geom_` layer of `hwy`
+
+```{r, fig.height=3.5, message=FALSE, warning=FALSE}
+mpg.h1<-mpg.h+geom_histogram()
+mpg.h1
+```
+
+- Customize the histogram `geom_` layer (\# of bins, color, etc)
+
+```{r, fig.height=3.5}
+mpg.h2<-mpg.h+geom_histogram(bins=20, color="black",fill="indianred")
+mpg.h2
+```
+
+- Adding additional `geom_` layers
+
+- Add a vertical line for the mean with another `geom` called `vline`
+
+```{r, fig.height=3.5}
+mpg.h2<-mpg.h2+
+  geom_vline(xintercept=mean(mpg$hwy),linetype="dotted",color="blue",size=1)
+mpg.h2
+```
+
+- Editing Coordinates (Axes)
+
+- Change the labels on the axes with `xlab()` and `ylab()`
+
+```{r, fig.height=3.5}
+mpg.h2<-mpg.h2+xlab("Miles Per Gallon (on Highway)")+ylab("Number of Cars")
+mpg.h2
+```
+
+Other Geoms
+
+- How about a **density plot**: use `geom_density()` instead of `geom_histogram()`
+
+```{r, fig.height=3.5}
+mpg.d<-ggplot(data=mpg,aes(x=hwy))+
+  geom_density(fill="indianred")
+mpg.d
+```
+
+- Let's make a separate density plot for each `class`, set `aes` to `fill` by `class`
+
+```{r, fig.height=3.5}
+mpg.d<-ggplot(data=mpg,aes(x=hwy,fill=class))+
+  geom_density(alpha=0.5) # alpha adds transparency
+mpg.d
+```
+
+- Instead of a density plot, a `boxplot` by `class` (note now `x` is `class` and `y` is `hwy`): 
+
+```{r, fig.height=3.5}
+mpg.b<-ggplot(data=mpg,aes(x=class,y=hwy,fill=class))+
+  geom_boxplot()
+mpg.b
+```
+
+
+- Start with the base layer: establish data source, define $x$ and $y$ variables
+
+```{r, fig.height=3.5}
+mpg.p<-ggplot(data=mpg,aes(x=displ, y=hwy)) #use mtcars df, let x=displ, y=hwy
+
+mpg.p
+```
+
+```{r, fig.height=3.5}
+mpg.p<-mpg.p+geom_point() # specify observations as points on graph
+
+mpg.p
+```
+
+
+```{r, fig.height=3.5}
+mpg.p<-mpg.p+geom_point(aes(color=manufacturer)) # color data points by manuf.
+
+mpg.p
+```
+
+
+```{r, fig.height=3.5}
+mpg.p<-mpg.p+geom_smooth(method="lm", color="black") # add a black OLS line 
+
+mpg.p
+```
+
+
+```{r, fig.height=3.5}
+mpg.p<-mpg.p+xlab("Engine Displacement (Liters)")+
+  ylab("Miles Per Gallon on Highway")
+mpg.p
+```
+
+
+- Let's have some fun changing the theme 
+
+```{r, fig.height=3.5}
+library("ggthemes") # need ggthemes package (install if first use)
+mpg.p<-mpg.p+theme_economist_white() #make it look like The Economist magazine
+mpg.p
+```
+
+
+```{r, fig.height=3.5}
+mpg.p<-mpg.p+theme_fivethirtyeight() #make it look like fivethirtyeight
+mpg.p
+```
+
+
+```{r, fig.height=3.5}
+# make columns of separate 'facet' figures for each class of car
+mpg.p<-mpg.p+facet_grid(cols = vars(class)) # make 'columns' by variable 'class'
+mpg.p
+```
+
+
+```{r, fig.height=3.5}
+ggplot(data=mpg,aes(x=displ, y=hwy))+geom_point(aes(color=manufacturer))+
+  geom_smooth(color="black",method="lm")+
+  xlab("Engine Displacement (Liters)")+ylab("Miles Per Gallon on Highway")+
+  theme_fivethirtyeight()+facet_grid(cols = vars(class)) 
+```
+
+
+```{r,echo=FALSE,fig.height=5.5,message=FALSE}
+# requires packages "maps" and "reshape2", in addition to ggplot2
+crimes <- data.frame(state = tolower(rownames(USArrests)),USArrests)
+library(reshape2) # for melt
+crimesm <- melt(crimes, id = 1)
+# Get map data
+require(maps) 
+map_data <- map_data("state")
+# Plot the map with Murder data
+ggplot(crimes, aes(map_id = state)) + 
+  geom_map(aes(fill = UrbanPop), map = map_data) + 
+  expand_limits(x = map_data$long, y = map_data$lat)+
+  xlab("Longitude")+ylab("Latitude")
+```
